@@ -6,116 +6,60 @@ import "@openzeppelin/contracts/token/ERC20/ERC20.sol";
 import "@openzeppelin/contracts/token/ERC20/extensions/ERC20Capped.sol";
 import "@openzeppelin/contracts/access/Ownable.sol";
 
-contract Token is ERC20, ERC20Capped, Ownable {
+contract Token2 is ERC20, Ownable {
+
+    uint256 constant SEPTEMBER_3 = 0; // >>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>> SET This
     struct Vesting {
         uint256 amount;
-        uint256 releasePercentage;
+        uint256 initialReleaseTime; // SEP 3 / +block.timeStamp+ 30 days
+        uint256 initialReleaseAmount;
+        uint256 nextReleaseTime; // +30 days from every vesting
+        uint256 monthlyReleaseAmount;
+        uint256 cyclesLeft; // set to 9,  decrease on each vesting
     }
 
     // @dev - holds Launchpad address, vesting percentage
     struct Source {
-        address _address;
-        uint256 _releasePercentage;
+        uint256 _initialReleasePercentage;
+        uint256 _monthlyReleasePercentage;
         bool isSet;
     }
 
-    // *****************************************************Check requirement
-    event AddSource(address _address, uint256 _releasePercentage);
+    mapping(address => Source) private _listedSource;
+    mapping(address => uint256) private _freeTokens;
+    mapping(address => Vesting[]) private _userVestings;
 
-    // Source[] private _sources;
-    mapping(address => Source) _sources;
-    mapping(address => uint256) freeTokens;
-    mapping(address => Vesting[]) vestings;
-    uint256 private _ownerReleasePercentage;
+    event AddSource(address _address,uint256 _initialReleasePercentage,uint256 _monthlyReleasePercentage );
 
     constructor(
         string memory _name,
         string memory _symbol,
-        uint256 _initialSupply,
-        uint256 _cap,
-        uint256 _initialOwnerReleasePercentage
-    ) ERC20(_name, _symbol) ERC20Capped(_cap) {
-        require(
-            _initialOwnerReleasePercentage > 0,
-            "Release percentage should be greater than 0"
-        );
+        uint256 _initialSupply
+    ) ERC20(_name, _symbol) {
         ERC20._mint(msg.sender, _initialSupply);
-        freeTokens[msg.sender] = _initialSupply;
 
-        _ownerReleasePercentage = _initialOwnerReleasePercentage;
+        _freeTokens[msg.sender] = _initialSupply;
+
+        // _listedSource[msg.sender] = true;
     }
 
-    function _mint(address account, uint256 amount)
-        internal
-        virtual
-        override(ERC20Capped, ERC20)
-        onlyOwner
-    {
-        super._mint(account, amount);
-    }
 
-    function setOwnerReleasePercentage(uint256 _newReleasePercentage)
+    function addSource(address _sourceAddress, uint256 _initialReleasePercentage,uint256 _monthlyReleasePercentage)
         external
         onlyOwner
     {
-        _ownerReleasePercentage = _newReleasePercentage;
-    }
-
-    function getOwnerReleasePercentage() public view returns (uint256) {
-        return _ownerReleasePercentage;
-    }
-
-    // @dev to add new vesting source
-    function addSource(
-        address _sourceAddress,
-        uint256 _releasePercentage,
-        uint256 _allowance
-    ) external onlyOwner {
         require(_sourceAddress != address(0), "Cannot add address 0");
-        require(checkSource(_sourceAddress) == false, "Source already exists");
-        require(
-            _releasePercentage > 0,
-            "Release percentage should be greater than 0"
-        );
-        _sources[_sourceAddress] = Source(
-            _sourceAddress,
-            _releasePercentage,
-            true
-        );
-        // _sources.push(Source(_sourceAddress, _releasePercentage));
-        approve(_sourceAddress, _allowance);
-        emit AddSource(_sourceAddress, _releasePercentage);
+
+        require(_listedSource[_sourceAddress].isSet, "Source Already exists");
+
+        _listedSource[_sourceAddress] = Source(_initialReleasePercentage,_monthlyReleasePercentage,true);
+
+        emit AddSource(_sourceAddress, _initialReleasePercentage,_monthlyReleasePercentage);
     }
 
-    //  @dev Make changes to existing source
-    function updateSourcePercentage(
-        address _sourceAddress,
-        uint256 _newReleasePercentage
-    ) external onlyOwner {
-        require(
-            _newReleasePercentage > 0,
-            "Release percentage should be greater than 0"
-        );
-
-        _sources[_sourceAddress]._releasePercentage = _newReleasePercentage;
-    }
-
-    // Remove a listed source
-    // ********************************************** Test POP() ***************************************************
-
-    function removeSource(address _sourceAddress) external onlyOwner {
-        delete _sources[_sourceAddress];
-        decreaseAllowance(_sourceAddress, allowance(owner(), _sourceAddress));
-    }
 
     function checkSource(address _sourceAddress) public view returns (bool) {
-        return _sources[_sourceAddress].isSet;
-    }
-
-    //  Transfers
-
-    function mintMoreTokens(uint256 _amount) public onlyOwner {
-        _mint(owner(), _amount);
+        return _listedSource[_sourceAddress].isSet;
     }
 
     function _beforeTokenTransfer(
@@ -124,26 +68,54 @@ contract Token is ERC20, ERC20Capped, Ownable {
         uint256 amount
     ) internal virtual override {
         super._beforeTokenTransfer(from, to, amount);
-        require(amount >= freeTokens[from], "Not Enough free tokens");
-        if (from == owner()) {
-            require(
-                getOwnerReleasePercentage() != 0,
-                "Monthly Release percentage not set correctly"
-            );
-        }
+        require(amount >= _freeTokens[from], "Not Enough free tokens");
     }
+
+
+    function addVesting(address to, uint256 amount,uint256 initialReleaseTime,uint256 initialReleasePercentage, uint256 monthlyReleasePercentage) private {
+        _userVestings[to].push(Vesting(amount,initialReleaseTime, (amount*initialReleasePercentage)/100 ,initialReleaseTime + 30 days,(amount*monthlyReleasePercentage)/100 ,1 + (100 - initialReleasePercentage)/monthlyReleasePercentage));
+    }   
+
+
+    // For Owner to send 
+    function sendFrozen(address to, uint256 amount,uint256 initialReleasePercentage, uint256 monthlyReleasePercentage) public onlyOwner {        
+        transfer(to, amount);
+         
+        //  will also call _afterTokenTransfer ????????????????????????????????????????????????????????????????????????????????????????
+        
+        _freeTokens[to] -= amount; //  free tokens will be increased by _afterTokenTransfer > this line reverts this.
+
+
+        if(block.timestamp < SEPTEMBER_3){
+            addVesting(to, amount,SEPTEMBER_3, initialReleasePercentage ,monthlyReleasePercentage);
+        }
+        else{
+            addVesting(to,amount,block.timestamp + 30 days, initialReleasePercentage ,monthlyReleasePercentage);
+        }
+
+    }
+
+    //  Transfers from all listed launchpads willl be vested 20% -> 30 days, 10% successive months and free tokens are not updated
 
     function _afterTokenTransfer(
         address from,
         address to,
         uint256 amount
     ) internal virtual override {
-        if (from == owner()) {
-            vestings[to].push(Vesting(amount, getOwnerReleasePercentage()));
-        } else if (_sources[from].isSet == true) {
-            vestings[to].push(
-                Vesting(amount, _sources[from]._releasePercentage)
-            );
+
+        if (_listedSource[from].isSet == true) {
+            addVesting(to, amount, block.timestamp + 30 days,(amount * _listedSource[from]._initialReleasePercentage) / 100 , (amount * _listedSource[from]._monthlyReleasePercentage)/100);
+        } else {
+            _freeTokens[to] += amount;
         }
+
+        unchecked {
+            _freeTokens[from] -= amount;
+        }
+        super._afterTokenTransfer(from, to, amount);
     }
+
+
+
+
 }
