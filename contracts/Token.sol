@@ -6,8 +6,9 @@ import "@openzeppelin/contracts/token/ERC20/ERC20.sol";
 import "@openzeppelin/contracts/token/ERC20/extensions/ERC20Burnable.sol";
 import "@openzeppelin/contracts/access/Ownable.sol";
 
-contract Token2 is ERC20, ERC20Burnable ,Ownable {
-    uint256 constant SEPTEMBER_3 = 0; // >>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>> SET This
+contract Token is ERC20, ERC20Burnable, Ownable {
+    uint256 private Start_date = 0; // >>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>> SET This
+
     struct Vesting {
         // uint256 amountVested;
         uint256 nextReleaseTime; // SEP 3 / +block.timeStamp+ 30 days
@@ -48,6 +49,14 @@ contract Token2 is ERC20, ERC20Burnable ,Ownable {
 
     function min(uint256 a, uint256 b) internal pure returns (uint256) {
         return a <= b ? a : b;
+    }
+
+    function setStartDate(uint256 date) public onlyOwner {
+        require(
+            date > block.timestamp,
+            "Start time should be greater than current time"
+        );
+        Start_date = date;
     }
 
     function addSource(
@@ -172,6 +181,10 @@ contract Token2 is ERC20, ERC20Burnable ,Ownable {
         return _amountVested[user];
     }
 
+    function getVestingCount(address user) public view returns (uint256) {
+        return _userVestings[user].length;
+    }
+
     // For Owner to send
     function sendFrozen(
         address to,
@@ -185,11 +198,11 @@ contract Token2 is ERC20, ERC20Burnable ,Ownable {
 
         _freeTokens[to] -= amount; //  free tokens will be increased by _afterTokenTransfer > this line reverts this.
 
-        if (block.timestamp < SEPTEMBER_3) {
+        if (block.timestamp < Start_date) {
             addVesting(
                 to,
                 amount,
-                SEPTEMBER_3,
+                Start_date,
                 initialReleasePercentage,
                 monthlyReleasePercentage
             );
