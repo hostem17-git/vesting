@@ -6,6 +6,7 @@ import "@openzeppelin/contracts/token/ERC20/ERC20.sol";
 import "@openzeppelin/contracts/token/ERC20/extensions/ERC20Burnable.sol";
 import "@openzeppelin/contracts/access/Ownable.sol";
 
+
 contract Token is ERC20, ERC20Burnable, Ownable {
     uint256 private Start_date = 0; // >>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>> SET This
 
@@ -81,19 +82,11 @@ contract Token is ERC20, ERC20Burnable, Ownable {
         );
     }
 
+
     function checkSource(address _sourceAddress) public view returns (bool) {
         return _listedSource[_sourceAddress].isSet;
     }
 
-    function _beforeTokenTransfer(
-        address from,
-        address to,
-        uint256 amount
-    ) internal virtual override {
-        super._beforeTokenTransfer(from, to, amount);
-        unFreeze(from);
-        require(amount >= _freeTokens[from], "Not Enough free tokens");
-    }
 
     function addVesting(
         address to,
@@ -112,7 +105,7 @@ contract Token is ERC20, ERC20Burnable, Ownable {
         );
     }
 
-    function deleteVesting(address user, uint256 id) internal {
+    function deleteVesting(address user, uint256 id) private {
         _userVestings[user][id] = _userVestings[user][
             _userVestings[user].length - 1
         ];
@@ -120,10 +113,37 @@ contract Token is ERC20, ERC20Burnable, Ownable {
         // Check this
     }
 
+    function tokensToBeReleased(address user) private view returns (uint256) {
+        uint256 _tokenTobeReleased = 0;
+        for (uint256 i = 0; i < _userVestings[user].length; i++) {
+            // First unfreeze
+            if (block.timestamp > _userVestings[user][i].nextReleaseTime) {
+                if (_userVestings[user][i].initialReleaseAmount > 0) {
+                    _tokenTobeReleased += _userVestings[user][i]
+                        .initialReleaseAmount;
+                }
+
+                uint256 cyclesPassed = (block.timestamp -
+                    _userVestings[user][i].nextReleaseTime) % 30 days;
+
+                uint256 cyclesToBePaid = min(
+                    _userVestings[user][i].cyclesLeft,
+                    cyclesPassed
+                );
+
+                _tokenTobeReleased +=
+                    cyclesToBePaid *
+                    _userVestings[user][i].monthlyReleaseAmount;
+            }
+        }
+        return _tokenTobeReleased;
+    }
+
     function unFreeze(address user) private {
         for (uint256 i = 0; i < _userVestings[user].length; i++) {
             // First unfreeze
             if (block.timestamp > _userVestings[user][i].nextReleaseTime) {
+                
                 if (_userVestings[user][i].initialReleaseAmount > 0) {
                     _freeTokens[user] += _userVestings[user][i]
                         .initialReleaseAmount;
@@ -160,9 +180,8 @@ contract Token is ERC20, ERC20Burnable, Ownable {
         }
     }
 
-    function getFrozenTokens(address user) public returns (uint256) {
-        unFreeze(user);
-        return balanceOf(user) - _freeTokens[user];
+    function getFrozenTokens(address user) public view returns (uint256) {
+        return balanceOf(user) - getFreeTokens(user) - tokensToBeReleased(user);
     }
 
     function getVestingSchedules(address user) public view returns (uint256) {
@@ -218,6 +237,21 @@ contract Token is ERC20, ERC20Burnable, Ownable {
     }
 
     //  Transfers from all listed launchpads willl be vested 20% -> 30 days, 10% successive months and free tokens are not updated
+
+        function _beforeTokenTransfer(
+        address from,
+        address to,
+        uint256 amount
+    ) internal virtual override {
+        super._beforeTokenTransfer(from, to, amount);
+
+        unFreeze(from);
+        if (from != address(0)) {
+            require(amount <= _freeTokens[from], "Not Enough free tokens");
+        }
+    }
+
+
 
     function _afterTokenTransfer(
         address from,

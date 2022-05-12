@@ -13,7 +13,7 @@ describe("Token Testing", function () {
   console.log("start testing")
   let Token, token, owner, addr1, addr2
 
-  beforeEach(async () => {
+  before(async () => {
     Token = await ethers.getContractFactory("Token");
     token = await Token.deploy(name, symbol, initialSupply);
     await token.deployed();
@@ -51,19 +51,39 @@ describe("Token Testing", function () {
   describe("Owner Transfers", async () => {
 
     it("Should allow owner to send free tokens", async () => {
-
       //  await console.log("Owner-------->", await token.owner());
-      console.log(await token.getFreeTokens(owner.address));
-
       await token.transfer(addr1.address, 100);
       expect(await token.balanceOf(owner.address)).to.equal(initialSupply - 100);
       expect(await token.getFreeTokens(owner.address)).to.equal(initialSupply - 100);
+      const bal = await token.getFrozenTokens(owner.address)
+      console.log({
+        bal: bal.toString()
+      })
+      expect(await token.getFrozenTokens(owner.address)).to.equal(0);
+
 
       expect(await token.balanceOf(addr1.address)).to.equal(100);
       expect(await token.getFreeTokens(addr1.address)).to.equal(100);
       expect(await token.getVestingCount(addr1.address)).to.equal(0);
+      expect(await token.getFrozenTokens(addr1.address)).to.equal(0);
+
     })
 
+    it("Should allow owner to send frozen Tokens", async () => {
+      await token.sendFrozen(addr1.address, 50, 20, 10);
+      expect(await token.balanceOf(owner.address)).to.equal(initialSupply - 150);
+      expect(await token.getFreeTokens(owner.address)).to.equal(initialSupply - 150);
+
+      expect(await token.balanceOf(addr1.address)).to.equal(150);
+      expect(await token.getFreeTokens(addr1.address)).to.equal(100);
+      expect(await token.getVestingCount(addr1.address)).to.equal(1);
+      expect(await token.getFrozenTokens(addr1.address)).to.equal(50);
+    })
+
+    it("Should Restrict others from sending frozen Tokens", async()=>{
+      await expect(token.connect(addr1).sendFrozen(addr2.address,50,20,10)).to.be.revertedWith("Ownable: caller is not the owner");
+
+    })
   });
 
 
