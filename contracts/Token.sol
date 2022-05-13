@@ -6,10 +6,10 @@ import "@openzeppelin/contracts/token/ERC20/ERC20.sol";
 import "@openzeppelin/contracts/token/ERC20/extensions/ERC20Burnable.sol";
 import "@openzeppelin/contracts/access/Ownable.sol";
 
-
 contract Token is ERC20, ERC20Burnable, Ownable {
     uint256 private Start_date = 0; // >>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>> SET This
 
+    bool vesting_started = false;
     struct Vesting {
         // uint256 amountVested;
         uint256 nextReleaseTime; // SEP 3 / +block.timeStamp+ 30 days
@@ -52,12 +52,13 @@ contract Token is ERC20, ERC20Burnable, Ownable {
         return a <= b ? a : b;
     }
 
-    function setStartDate(uint256 date) public onlyOwner {
+    function setStartDate(uint256 date) external onlyOwner {
         require(
             date > block.timestamp,
             "Start time should be greater than current time"
         );
         Start_date = date;
+        vesting_started = true;
     }
 
     function addSource(
@@ -82,11 +83,9 @@ contract Token is ERC20, ERC20Burnable, Ownable {
         );
     }
 
-
     function checkSource(address _sourceAddress) public view returns (bool) {
         return _listedSource[_sourceAddress].isSet;
     }
-
 
     function addVesting(
         address to,
@@ -95,6 +94,8 @@ contract Token is ERC20, ERC20Burnable, Ownable {
         uint256 initialReleasePercentage,
         uint256 monthlyReleasePercentage
     ) private {
+        require(vesting_started,"Vesting not yet started");
+        
         _userVestings[to].push(
             Vesting(
                 initialReleaseTime,
@@ -143,7 +144,6 @@ contract Token is ERC20, ERC20Burnable, Ownable {
         for (uint256 i = 0; i < _userVestings[user].length; i++) {
             // First unfreeze
             if (block.timestamp > _userVestings[user][i].nextReleaseTime) {
-                
                 if (_userVestings[user][i].initialReleaseAmount > 0) {
                     _freeTokens[user] += _userVestings[user][i]
                         .initialReleaseAmount;
@@ -193,7 +193,7 @@ contract Token is ERC20, ERC20Burnable, Ownable {
     }
 
     function getFreeTokens(address user) public view returns (uint256) {
-        return _freeTokens[user];
+        return _freeTokens[user] + tokensToBeReleased(user);
     }
 
     function getAmonuntVested(address user) public view returns (uint256) {
@@ -238,7 +238,7 @@ contract Token is ERC20, ERC20Burnable, Ownable {
 
     //  Transfers from all listed launchpads willl be vested 20% -> 30 days, 10% successive months and free tokens are not updated
 
-        function _beforeTokenTransfer(
+    function _beforeTokenTransfer(
         address from,
         address to,
         uint256 amount
@@ -250,8 +250,6 @@ contract Token is ERC20, ERC20Burnable, Ownable {
             require(amount <= _freeTokens[from], "Not Enough free tokens");
         }
     }
-
-
 
     function _afterTokenTransfer(
         address from,
