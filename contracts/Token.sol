@@ -57,6 +57,8 @@ contract Token is ERC20, ERC20Burnable, Ownable {
             date > block.timestamp,
             "Start time should be greater than current time"
         );
+
+        require(vesting_started == false, "Cannot Change Vesting start date");
         Start_date = date;
         vesting_started = true;
     }
@@ -94,8 +96,8 @@ contract Token is ERC20, ERC20Burnable, Ownable {
         uint256 initialReleasePercentage,
         uint256 monthlyReleasePercentage
     ) private {
-        require(vesting_started,"Vesting not yet started");
-        
+        require(vesting_started, "Vesting not yet started");
+
         _userVestings[to].push(
             Vesting(
                 initialReleaseTime,
@@ -116,25 +118,37 @@ contract Token is ERC20, ERC20Burnable, Ownable {
 
     function tokensToBeReleased(address user) private view returns (uint256) {
         uint256 _tokenTobeReleased = 0;
+        uint256 _nextRelease;
         for (uint256 i = 0; i < _userVestings[user].length; i++) {
-            // First unfreeze
-            if (block.timestamp > _userVestings[user][i].nextReleaseTime) {
+            _nextRelease = _userVestings[user][i].nextReleaseTime;
+            if (block.timestamp > _nextRelease) {
                 if (_userVestings[user][i].initialReleaseAmount > 0) {
+                    console.log(
+                        "first vesting",
+                        _userVestings[user][i].initialReleaseAmount
+                    );
+                    _nextRelease += 30 days;
                     _tokenTobeReleased += _userVestings[user][i]
                         .initialReleaseAmount;
                 }
 
-                uint256 cyclesPassed = (block.timestamp -
-                    _userVestings[user][i].nextReleaseTime) % 30 days;
+                if (block.timestamp > _nextRelease) {
+                    console.log(
+                        "time diff",
+                        (block.timestamp - _nextRelease) / 1 days
+                    );
+                    uint256 cyclesPassed = 1 + ( (block.timestamp - _nextRelease) /
+                        30 days);
+                    // console.log("Cycles Passed", cyclesPassed);
+                    uint256 cyclesToBePaid = min(
+                        _userVestings[user][i].cyclesLeft,
+                        cyclesPassed
+                    );
 
-                uint256 cyclesToBePaid = min(
-                    _userVestings[user][i].cyclesLeft,
-                    cyclesPassed
-                );
-
-                _tokenTobeReleased +=
-                    cyclesToBePaid *
-                    _userVestings[user][i].monthlyReleaseAmount;
+                    _tokenTobeReleased +=
+                        cyclesToBePaid *
+                        _userVestings[user][i].monthlyReleaseAmount;
+                }
             }
         }
         return _tokenTobeReleased;
@@ -143,45 +157,68 @@ contract Token is ERC20, ERC20Burnable, Ownable {
     function unFreeze(address user) private {
         for (uint256 i = 0; i < _userVestings[user].length; i++) {
             // First unfreeze
-            if (block.timestamp > _userVestings[user][i].nextReleaseTime) {
+            console.log("In Unfreeze");
+
+//1st condition to skip used up vesting
+            if (_userVestings[user][i].cyclesLeft > 0 &&  block.timestamp > _userVestings[user][i].nextReleaseTime) {
+
                 if (_userVestings[user][i].initialReleaseAmount > 0) {
                     _freeTokens[user] += _userVestings[user][i]
                         .initialReleaseAmount;
                     _userVestings[user][i].initialReleaseAmount = 0;
                     _userVestings[user][i].nextReleaseTime += 30 days;
+                    console.log(
+                        "next release",
+                        _userVestings[user][i].nextReleaseTime
+                    );
+                    _userVestings[user][i].cyclesLeft--;
                 }
+                if (block.timestamp > _userVestings[user][i].nextReleaseTime) {
 
-                uint256 cyclesPassed = (block.timestamp -
-                    _userVestings[user][i].nextReleaseTime) % 30 days;
+                    uint256 cyclesPassed =1 + ((block.timestamp -
+                        _userVestings[user][i].nextReleaseTime) / 30 days);
 
-                uint256 cyclesToBePaid = min(
-                    _userVestings[user][i].cyclesLeft,
-                    cyclesPassed
-                );
+                    uint256 cyclesToBePaid = min(
+                        _userVestings[user][i].cyclesLeft,
+                        cyclesPassed
+                    );
 
-                _amountVested[user] +=
-                    cyclesToBePaid *
-                    _userVestings[user][i].monthlyReleaseAmount;
+                    _amountVested[user] +=
+                        cyclesToBePaid *
+                        _userVestings[user][i].monthlyReleaseAmount;
 
-                _freeTokens[user] +=
-                    cyclesToBePaid *
-                    _userVestings[user][i].monthlyReleaseAmount;
+                    _freeTokens[user] +=
+                        cyclesToBePaid *
+                        _userVestings[user][i].monthlyReleaseAmount;
 
-                _userVestings[user][i].cyclesLeft -= cyclesToBePaid;
-                _userVestings[user][i].nextReleaseTime += (cyclesPassed *
-                    1 days);
+                        console.log("111111111111");
 
-                // Check Delete Vesting
-                if (_userVestings[user][i].cyclesLeft == 0) {
-                    deleteVesting(user, i);
-                    i--;
+                    _userVestings[user][i].cyclesLeft -= cyclesToBePaid;
+
+                    console.log("222222222222222");
+
+                    _userVestings[user][i].nextReleaseTime += (cyclesPassed *
+                        30 days);
+                    console.log(
+                        "next release",
+                        _userVestings[user][i].nextReleaseTime
+                    );
+                    // Check Delete Vesting
+
+                    // // *****************************************************
+                    // if (_userVestings[user][i].cyclesLeft == 0) {
+                    //     deleteVesting(user, i);
+                    //     i--;
+                    // }
+
+                    // *****************************************
                 }
             }
         }
     }
 
     function getFrozenTokens(address user) public view returns (uint256) {
-        return balanceOf(user) - getFreeTokens(user) - tokensToBeReleased(user);
+        return balanceOf(user) - getFreeTokens(user);
     }
 
     function getVestingSchedules(address user) public view returns (uint256) {
@@ -246,6 +283,7 @@ contract Token is ERC20, ERC20Burnable, Ownable {
         super._beforeTokenTransfer(from, to, amount);
 
         unFreeze(from);
+
         if (from != address(0)) {
             require(amount <= _freeTokens[from], "Not Enough free tokens");
         }
@@ -272,5 +310,14 @@ contract Token is ERC20, ERC20Burnable, Ownable {
             _freeTokens[from] -= amount;
         }
         super._afterTokenTransfer(from, to, amount);
+    }
+
+    function getVestingDetails(address user, uint256 id)
+        public
+        view
+        onlyOwner
+        returns (Vesting memory)
+    {
+        return _userVestings[user][id];
     }
 }
