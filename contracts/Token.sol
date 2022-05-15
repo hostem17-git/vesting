@@ -110,8 +110,6 @@ contract Token is ERC20, ERC20Burnable, Ownable {
         );
     }
 
-    
-
     function deleteVesting(address user, uint256 id) private {
         _userVestings[user][id] = _userVestings[user][
             _userVestings[user].length - 1
@@ -241,7 +239,7 @@ contract Token is ERC20, ERC20Burnable, Ownable {
         return balanceOf(user) - getFreeTokens(user);
     }
 
-// ########################### Check requirement
+    // ########################### Check requirement
     function getVestingCount(address user) public view returns (uint256) {
         return _userVestings[user].length;
     }
@@ -278,7 +276,68 @@ contract Token is ERC20, ERC20Burnable, Ownable {
         }
     }
 
-    //  Transfers from all listed launchpads willl be vested 20% -> 30 days, 10% successive months and free tokens are not updated
+    //  @dev - for owner to unfreeze amount in a wallet;
+    // function unFreezeAmount(address user, uint256 amount) external onlyOwner {
+    //     require(amount >= getFrozenTokens(user), "Not enough frozen tokens");
+    //     require(amount >= 0, "Amount should be greater than 0");
+
+    //     for (uint256 i = 0; i < _userVestings[user].length; i++) {
+    //         if (_userVestings[user][i].cyclesLeft > 0) {
+    //             if (_userVestings[user][i].initialReleaseAmount > 0) {
+    //                 // if(amount < _userVestings[user][i].initialReleaseAmount)
+    //             }
+    //         }
+    //         // First unfreeze
+
+    //         //1st condition to skip used up vesting
+    //         if (
+    //             _userVestings[user][i].cyclesLeft > 0 &&
+    //             block.timestamp >= _userVestings[user][i].nextReleaseTime
+    //         ) {
+    //             if (_userVestings[user][i].initialReleaseAmount > 0) {
+    //                 _freeTokens[user] += _userVestings[user][i]
+    //                     .initialReleaseAmount;
+    //                 _userVestings[user][i].initialReleaseAmount = 0;
+    //                 _userVestings[user][i].nextReleaseTime += 30 days;
+
+    //                 _userVestings[user][i].cyclesLeft--;
+    //             }
+    //             if (block.timestamp >= _userVestings[user][i].nextReleaseTime) {
+    //                 uint256 cyclesPassed = 1 +
+    //                     ((block.timestamp -
+    //                         _userVestings[user][i].nextReleaseTime) / 30 days);
+
+    //                 uint256 cyclesToBePaid = min(
+    //                     _userVestings[user][i].cyclesLeft,
+    //                     cyclesPassed
+    //                 );
+
+    //                 _amountVested[user] +=
+    //                     cyclesToBePaid *
+    //                     _userVestings[user][i].monthlyReleaseAmount;
+
+    //                 _freeTokens[user] +=
+    //                     cyclesToBePaid *
+    //                     _userVestings[user][i].monthlyReleaseAmount;
+
+    //                 _userVestings[user][i].cyclesLeft -= cyclesToBePaid;
+
+    //                 _userVestings[user][i].nextReleaseTime += (cyclesPassed *
+    //                     30 days);
+
+    //                 // Check Delete Vesting
+
+    //                 // // *****************************************************
+    //                 // if (_userVestings[user][i].cyclesLeft == 0) {
+    //                 //     deleteVesting(user, i);
+    //                 //     i--;
+    //                 // }
+
+    //                 // *****************************************
+    //             }
+    //         }
+    //     }
+    // }
 
     function _beforeTokenTransfer(
         address from,
