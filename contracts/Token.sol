@@ -35,6 +35,8 @@ contract Token is ERC20, ERC20Burnable, Ownable {
         uint256 _monthlyReleasePercentage
     );
 
+    event ManualUnfreeze(address _address, uint256 _amount);
+
     constructor(
         string memory _name,
         string memory _symbol,
@@ -161,7 +163,8 @@ contract Token is ERC20, ERC20Burnable, Ownable {
                         .initialReleaseAmount;
                     _userVestings[user][i].initialReleaseAmount = 0;
                     _userVestings[user][i].nextReleaseTime += 30 days;
-
+                    _amountVested[user] += _userVestings[user][i]
+                        .initialReleaseAmount;
                     _userVestings[user][i].cyclesLeft--;
                 }
                 if (block.timestamp >= _userVestings[user][i].nextReleaseTime) {
@@ -244,7 +247,7 @@ contract Token is ERC20, ERC20Burnable, Ownable {
         return _userVestings[user].length;
     }
 
-    // For Owner to send
+    // For Owner to send Frozen Tokens
     function sendFrozen(
         address to,
         uint256 amount,
@@ -277,67 +280,81 @@ contract Token is ERC20, ERC20Burnable, Ownable {
     }
 
     //  @dev - for owner to unfreeze amount in a wallet;
-    // function unFreezeAmount(address user, uint256 amount) external onlyOwner {
-    //     require(amount >= getFrozenTokens(user), "Not enough frozen tokens");
-    //     require(amount >= 0, "Amount should be greater than 0");
+    function unfreezeAmount(address user, uint256 amount) external onlyOwner {
 
-    //     for (uint256 i = 0; i < _userVestings[user].length; i++) {
-    //         if (_userVestings[user][i].cyclesLeft > 0) {
-    //             if (_userVestings[user][i].initialReleaseAmount > 0) {
-    //                 // if(amount < _userVestings[user][i].initialReleaseAmount)
-    //             }
-    //         }
-    //         // First unfreeze
+        require(amount <= getFrozenTokens(user), "Not enough frozen tokens");
+        require(amount >= 0, "Amount should be greater than 0");
 
-    //         //1st condition to skip used up vesting
-    //         if (
-    //             _userVestings[user][i].cyclesLeft > 0 &&
-    //             block.timestamp >= _userVestings[user][i].nextReleaseTime
-    //         ) {
-    //             if (_userVestings[user][i].initialReleaseAmount > 0) {
-    //                 _freeTokens[user] += _userVestings[user][i]
-    //                     .initialReleaseAmount;
-    //                 _userVestings[user][i].initialReleaseAmount = 0;
-    //                 _userVestings[user][i].nextReleaseTime += 30 days;
+        unFreeze(user);
 
-    //                 _userVestings[user][i].cyclesLeft--;
-    //             }
-    //             if (block.timestamp >= _userVestings[user][i].nextReleaseTime) {
-    //                 uint256 cyclesPassed = 1 +
-    //                     ((block.timestamp -
-    //                         _userVestings[user][i].nextReleaseTime) / 30 days);
+        uint256 amountReleased = 0;
+        for (uint256 i = 0; i < _userVestings[user].length && amount > 0; i++) {
+            if (_userVestings[user][i].cyclesLeft > 0) {
+                if (_userVestings[user][i].initialReleaseAmount > 0) {
+                    _freeTokens[user] += _userVestings[user][i]
+                        .initialReleaseAmount;
+                    _amountVested[user] += _userVestings[user][i]
+                        .initialReleaseAmount;
 
-    //                 uint256 cyclesToBePaid = min(
-    //                     _userVestings[user][i].cyclesLeft,
-    //                     cyclesPassed
-    //                 );
+                    amountReleased += _userVestings[user][i]
+                        .initialReleaseAmount;
 
-    //                 _amountVested[user] +=
-    //                     cyclesToBePaid *
-    //                     _userVestings[user][i].monthlyReleaseAmount;
+                    if (amount > _userVestings[user][i].initialReleaseAmount) {
+                        amount -= _userVestings[user][i].initialReleaseAmount;
+                    } else {
+                        amount = 0;
+                    }
+                    _userVestings[user][i].initialReleaseAmount = 0;
+                }
+                if (amount > 0) {
+                    uint256 cyclesToBeSkipped = amount /
+                        _userVestings[user][i].monthlyReleaseAmount;
+                    uint256 cyclesSkipped = min(
+                        _userVestings[user][i].cyclesLeft,
+                        cyclesToBeSkipped
+                    );
 
-    //                 _freeTokens[user] +=
-    //                     cyclesToBePaid *
-    //                     _userVestings[user][i].monthlyReleaseAmount;
+                    _freeTokens[user] +=
+                        cyclesSkipped *
+                        _userVestings[user][i].monthlyReleaseAmount;
+                    _amountVested[user] +=
+                        cyclesSkipped *
+                        _userVestings[user][i].monthlyReleaseAmount;
 
-    //                 _userVestings[user][i].cyclesLeft -= cyclesToBePaid;
+                    amountReleased +=
+                        cyclesSkipped *
+                        _userVestings[user][i].monthlyReleaseAmount;
 
-    //                 _userVestings[user][i].nextReleaseTime += (cyclesPassed *
-    //                     30 days);
+                    _userVestings[user][i].cyclesLeft -= cyclesSkipped;
 
-    //                 // Check Delete Vesting
+                    amount -=
+                        cyclesSkipped *
+                        _userVestings[user][i].monthlyReleaseAmount;
 
-    //                 // // *****************************************************
-    //                 // if (_userVestings[user][i].cyclesLeft == 0) {
-    //                 //     deleteVesting(user, i);
-    //                 //     i--;
-    //                 // }
+                    if (
+                        _userVestings[user][i].cyclesLeft > 0 &&
+                        amount < _userVestings[user][i].monthlyReleaseAmount 
+                        && amount>0
+                    ) {
+                        _freeTokens[user] += _userVestings[user][i]
+                            .monthlyReleaseAmount;
+                        _amountVested[user] += _userVestings[user][i]
+                            .monthlyReleaseAmount;
+                        amountReleased += _userVestings[user][i]
+                            .monthlyReleaseAmount;
+                        amount = 0;
+                        _userVestings[user][i].cyclesLeft--;
+                    }
+                }
 
-    //                 // *****************************************
-    //             }
-    //         }
-    //     }
-    // }
+                _userVestings[user][i].nextReleaseTime =
+                    block.timestamp +
+                    30 days;
+            }
+        }
+
+        emit ManualUnfreeze(user, amountReleased);
+    }
 
     function _beforeTokenTransfer(
         address from,

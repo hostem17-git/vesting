@@ -237,6 +237,127 @@ describe("Token Testing", function () {
 
     })
 
+
+    it("Manual Vesting Scenario #3 - Manual Unfreeze ,no user transactions", async () => {
+      const timeNow = await currentTime();
+      const startTime = timeNow + 50 * 24 * 60 * 60;
+
+      await token.setStartDate(startTime);
+      await token.sendFrozen(addr1.address, 100, 20, 10);
+
+      expect(await token.balanceOf(addr1.address), "Before Vesting:token transfer").to.equal(100);
+      expect(await token.getFreeTokens(addr1.address), "Before Vesting:tokens should be free").to.equal(0);
+      expect(await token.getFrozenTokens(addr1.address), "Before Vesting:tokens should be frozen").to.equal(100);
+
+      await increaseTime(51);
+
+      expect(await token.balanceOf(addr1.address), "1st Vesting:token transfer").to.equal(100);
+      expect(await token.getFreeTokens(addr1.address), "1st Vesting:tokens should be free").to.equal(20);
+      expect(await token.getFrozenTokens(addr1.address), "1st Vesting:tokens should be frozen").to.equal(80);
+
+      await token.unfreezeAmount(addr1.address,40);
+
+      expect(await token.balanceOf(addr1.address), "1st Vesting:token transfer").to.equal(100);
+      expect(await token.getFreeTokens(addr1.address), "1st Vesting:tokens should be free").to.equal(60);
+      expect(await token.getFrozenTokens(addr1.address), "1st Vesting:tokens should be frozen").to.equal(40);
+
+    
+
+      await increaseTime(30);
+
+      expect(await token.balanceOf(addr1.address), "2nd Vesting:token transfer").to.equal(100);
+      expect(await token.getFreeTokens(addr1.address), "2nd Vesting:tokens should be free").to.equal(70);
+      expect(await token.getFrozenTokens(addr1.address), "2nd Vesting:tokens should be frozen").to.equal(30);
+      expect(await token.getVestingCycles(addr1.address),"vesting Count ->").to.equal(3); 
+
+      await increaseTime(10);
+
+      await token.unfreezeAmount(addr1.address,13);
+
+      expect(await token.balanceOf(addr1.address), "2nd Vesting:token transfer").to.equal(100);
+      expect(await token.getFreeTokens(addr1.address), "2nd Vesting:tokens should be free").to.equal(90);
+      expect(await token.getFrozenTokens(addr1.address), "2nd Vesting:tokens should be frozen").to.equal(10);
+
+
+      await increaseTime(20);
+
+      expect(await token.balanceOf(addr1.address), "2nd Vesting:token transfer").to.equal(100);
+      expect(await token.getFreeTokens(addr1.address), "2nd Vesting:tokens should be free").to.equal(90);
+      expect(await token.getFrozenTokens(addr1.address), "2nd Vesting:tokens should be frozen").to.equal(10);
+
+      await increaseTime(10);
+
+      expect(await token.balanceOf(addr1.address), "3rd Vesting:token transfer").to.equal(100);
+      expect(await token.getFreeTokens(addr1.address), "3rd Vesting:tokens should be free").to.equal(100);
+      expect(await token.getFrozenTokens(addr1.address), "3rd Vesting:tokens should be frozen").to.equal(0);
+
+    });
+
+
+    it("Manual Vesting Scenario #3 - Manual Unfreeze ,no user transactions", async () => {
+      const timeNow = await currentTime();
+      const startTime = timeNow + 50 * 24 * 60 * 60;
+
+      await token.setStartDate(startTime);
+      await token.sendFrozen(addr1.address, 100, 20, 10);
+
+      expect(await token.balanceOf(addr1.address), "Before Vesting:token transfer").to.equal(100);
+      expect(await token.getFreeTokens(addr1.address), "Before Vesting:tokens should be free").to.equal(0);
+      expect(await token.getFrozenTokens(addr1.address), "Before Vesting:tokens should be frozen").to.equal(100);
+
+      await increaseTime(51);
+
+      expect(await token.balanceOf(addr1.address), "1st Vesting:token transfer").to.equal(100);
+      expect(await token.getFreeTokens(addr1.address), "1st Vesting:tokens should be free").to.equal(20);
+      expect(await token.getFrozenTokens(addr1.address), "1st Vesting:tokens should be frozen").to.equal(80);
+
+      await token.unfreezeAmount(addr1.address,40);
+
+      expect(await token.balanceOf(addr1.address), "1st Vesting:token transfer").to.equal(100);
+      expect(await token.getFreeTokens(addr1.address), "1st Vesting:tokens should be free").to.equal(60);
+      expect(await token.getFrozenTokens(addr1.address), "1st Vesting:tokens should be frozen").to.equal(40);
+
+      await token.connect(addr1).transfer(addr2.address,50);
+
+      expect(await token.balanceOf(addr1.address), "1st Vesting:token transfer").to.equal(50);
+      expect(await token.getFreeTokens(addr1.address), "1st Vesting:tokens should be free").to.equal(10);
+      expect(await token.getFrozenTokens(addr1.address), "1st Vesting:tokens should be frozen").to.equal(40);
+
+      await increaseTime(30);
+
+      expect(await token.balanceOf(addr1.address), "2nd Vesting:token transfer").to.equal(50);
+      expect(await token.getFreeTokens(addr1.address), "2nd Vesting:tokens should be free").to.equal(20);
+      expect(await token.getFrozenTokens(addr1.address), "2nd Vesting:tokens should be frozen").to.equal(30);
+      expect(await token.getVestingCycles(addr1.address),"vesting Count ->").to.equal(3); 
+
+      await increaseTime(10);
+
+      await token.unfreezeAmount(addr1.address,13);
+
+      expect(await token.balanceOf(addr1.address), "2nd Vesting:token transfer").to.equal(50);
+      expect(await token.getFreeTokens(addr1.address), "2nd Vesting:tokens should be free").to.equal(40);
+      expect(await token.getFrozenTokens(addr1.address), "2nd Vesting:tokens should be frozen").to.equal(10);
+
+
+      await increaseTime(20);
+
+      expect(await token.balanceOf(addr1.address), "2nd Vesting:token transfer").to.equal(50);
+      expect(await token.getFreeTokens(addr1.address), "2nd Vesting:tokens should be free").to.equal(40);
+      expect(await token.getFrozenTokens(addr1.address), "2nd Vesting:tokens should be frozen").to.equal(10);
+
+      await increaseTime(10);
+
+      expect(await token.balanceOf(addr1.address), "3rd Vesting:token transfer").to.equal(50);
+      expect(await token.getFreeTokens(addr1.address), "3rd Vesting:tokens should be free").to.equal(50);
+      expect(await token.getFrozenTokens(addr1.address), "3rd Vesting:tokens should be frozen").to.equal(0);
+
+    });
+
+
+
+
+
+
   });
 
 
