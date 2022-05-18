@@ -281,7 +281,6 @@ contract Token is ERC20, ERC20Burnable, Ownable {
 
     //  @dev - for owner to unfreeze amount in a wallet;
     function unfreezeAmount(address user, uint256 amount) external onlyOwner {
-
         require(amount <= getFrozenTokens(user), "Not enough frozen tokens");
         require(amount >= 0, "Amount should be greater than 0");
 
@@ -333,8 +332,8 @@ contract Token is ERC20, ERC20Burnable, Ownable {
 
                     if (
                         _userVestings[user][i].cyclesLeft > 0 &&
-                        amount < _userVestings[user][i].monthlyReleaseAmount 
-                        && amount>0
+                        amount < _userVestings[user][i].monthlyReleaseAmount &&
+                        amount > 0
                     ) {
                         _freeTokens[user] += _userVestings[user][i]
                             .monthlyReleaseAmount;
@@ -364,6 +363,7 @@ contract Token is ERC20, ERC20Burnable, Ownable {
         super._beforeTokenTransfer(from, to, amount);
 
         unFreeze(from);
+        console.log("from",from);
 
         if (from != address(0)) {
             require(amount <= _freeTokens[from], "Not Enough free tokens");
