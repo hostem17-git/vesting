@@ -17,7 +17,7 @@ const WETH_ADDRESS           = "0xbb4CdB9CBd36B01bD1cBaEBF2De08d9173bc095c";
 const FACTORY_ADDRESS        = "0xcA143Ce32Fe78f1f7019d7d551a6402fC5350c73";
 
 const DECIMAL_ZEROS   = "000000000000000000"; // 18 zeros
-const formatDecimals  = 1000000000000000000;
+const power = 1000000000000000000;
 
 const totalSupply     = 21000000;
 

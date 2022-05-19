@@ -25,7 +25,6 @@ describe("Token Testing", function () {
     return block.timestamp;
   }
 
-
   beforeEach(async () => {
     Token = await ethers.getContractFactory("Token");
     token = await Token.deploy(name, symbol, initialSupply);
@@ -35,6 +34,12 @@ describe("Token Testing", function () {
 
 
   describe("Base setup", async () => {
+
+    it("should set the right owner free balance",async()=>{
+      
+      expect(await token.getFreeTokens(owner.address)).to.equal(await token.balanceOf(owner.address));
+
+    })
 
     it('Should set the right name', async () => {
       expect(await token.name()).to.equal(name);
@@ -61,10 +66,11 @@ describe("Token Testing", function () {
     })
   });
 
-
+return;
   describe("Owner Transfers", async () => {
 
     it("Should allow owner to send free tokens", async () => {
+
 
       await token.transfer(addr1.address, 100);
       expect(await token.balanceOf(owner.address)).to.equal(initialSupply - 100);

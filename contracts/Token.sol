@@ -9,9 +9,11 @@ import "@openzeppelin/contracts/access/Ownable.sol";
 contract Token is ERC20, ERC20Burnable, Ownable {
     uint256 private Start_date = 0; // >>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>> SET This
 
+    uint256 vestingPeriod = 5 minutes;
+
     bool vesting_started = false;
     struct Vesting {
-        uint256 nextReleaseTime; // SEP 3 / +block.timeStamp+ 30 days
+        uint256 nextReleaseTime; // SEP 3 / +block.timeStamp+ vestingPeriod
         uint256 initialReleaseAmount;
         uint256 monthlyReleaseAmount;
         uint256 cyclesLeft; // set to 9,  decrease on each vesting
@@ -42,11 +44,7 @@ contract Token is ERC20, ERC20Burnable, Ownable {
         string memory _symbol,
         uint256 _initialSupply
     ) ERC20(_name, _symbol) {
-        ERC20._mint(msg.sender, _initialSupply);
-
-        _freeTokens[msg.sender] = _initialSupply;
-
-        // _listedSource[msg.sender] = true;
+        ERC20._mint(msg.sender, _initialSupply * 10**decimals());
     }
 
     function min(uint256 a, uint256 b) internal pure returns (uint256) {
@@ -127,14 +125,14 @@ contract Token is ERC20, ERC20Burnable, Ownable {
             _nextRelease = _userVestings[user][i].nextReleaseTime;
             if (block.timestamp >= _nextRelease) {
                 if (_userVestings[user][i].initialReleaseAmount > 0) {
-                    _nextRelease += 30 days;
+                    _nextRelease += vestingPeriod;
                     _tokenTobeReleased += _userVestings[user][i]
                         .initialReleaseAmount;
                 }
 
                 if (block.timestamp >= _nextRelease) {
                     uint256 cyclesPassed = 1 +
-                        ((block.timestamp - _nextRelease) / 30 days);
+                        ((block.timestamp - _nextRelease) / vestingPeriod);
                     uint256 cyclesToBePaid = min(
                         _userVestings[user][i].cyclesLeft,
                         cyclesPassed
@@ -162,7 +160,7 @@ contract Token is ERC20, ERC20Burnable, Ownable {
                     _freeTokens[user] += _userVestings[user][i]
                         .initialReleaseAmount;
                     _userVestings[user][i].initialReleaseAmount = 0;
-                    _userVestings[user][i].nextReleaseTime += 30 days;
+                    _userVestings[user][i].nextReleaseTime += vestingPeriod;
                     _amountVested[user] += _userVestings[user][i]
                         .initialReleaseAmount;
                     _userVestings[user][i].cyclesLeft--;
@@ -170,7 +168,8 @@ contract Token is ERC20, ERC20Burnable, Ownable {
                 if (block.timestamp >= _userVestings[user][i].nextReleaseTime) {
                     uint256 cyclesPassed = 1 +
                         ((block.timestamp -
-                            _userVestings[user][i].nextReleaseTime) / 30 days);
+                            _userVestings[user][i].nextReleaseTime) /
+                            vestingPeriod);
 
                     uint256 cyclesToBePaid = min(
                         _userVestings[user][i].cyclesLeft,
@@ -188,7 +187,7 @@ contract Token is ERC20, ERC20Burnable, Ownable {
                     _userVestings[user][i].cyclesLeft -= cyclesToBePaid;
 
                     _userVestings[user][i].nextReleaseTime += (cyclesPassed *
-                        30 days);
+                        vestingPeriod);
 
                     // Check Delete Vesting
 
@@ -212,12 +211,12 @@ contract Token is ERC20, ERC20Burnable, Ownable {
             uint256 localCount = 0;
             if (block.timestamp >= _nextRelease) {
                 if (_userVestings[user][i].initialReleaseAmount > 0) {
-                    _nextRelease += 30 days;
+                    _nextRelease += vestingPeriod;
                     localCount++;
                 }
                 if (block.timestamp >= _nextRelease) {
                     uint256 cyclesPassed = 1 +
-                        ((block.timestamp - _nextRelease) / 30 days);
+                        ((block.timestamp - _nextRelease) / vestingPeriod);
                     uint256 cyclesToBePaid = min(
                         _userVestings[user][i].cyclesLeft,
                         cyclesPassed
@@ -272,7 +271,7 @@ contract Token is ERC20, ERC20Burnable, Ownable {
             addVesting(
                 to,
                 amount,
-                block.timestamp + 30 days,
+                block.timestamp + vestingPeriod,
                 initialReleasePercentage,
                 monthlyReleasePercentage
             );
@@ -348,7 +347,7 @@ contract Token is ERC20, ERC20Burnable, Ownable {
 
                 _userVestings[user][i].nextReleaseTime =
                     block.timestamp +
-                    30 days;
+                    vestingPeriod;
             }
         }
 
@@ -363,7 +362,14 @@ contract Token is ERC20, ERC20Burnable, Ownable {
         super._beforeTokenTransfer(from, to, amount);
 
         unFreeze(from);
-        console.log("from",from);
+
+        // console.log("****************Transfer****************");
+
+        // console.log("from ->",from);
+        // console.log("to ->",to);
+        // console.log("amount ->",amount);
+
+        // console.log("****************************************");
 
         if (from != address(0)) {
             require(amount <= _freeTokens[from], "Not Enough free tokens");
@@ -379,7 +385,7 @@ contract Token is ERC20, ERC20Burnable, Ownable {
             addVesting(
                 to,
                 amount,
-                block.timestamp + 30 days,
+                block.timestamp + vestingPeriod,
                 (amount * _listedSource[from]._initialReleasePercentage) / 100,
                 (amount * _listedSource[from]._monthlyReleasePercentage) / 100
             );
@@ -387,8 +393,10 @@ contract Token is ERC20, ERC20Burnable, Ownable {
             _freeTokens[to] += amount;
         }
 
-        unchecked {
-            _freeTokens[from] -= amount;
+        if (from != address(0)) {
+            unchecked {
+                _freeTokens[from] -= amount;
+            }
         }
         super._afterTokenTransfer(from, to, amount);
     }

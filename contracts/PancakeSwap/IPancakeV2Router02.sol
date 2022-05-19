@@ -4,6 +4,7 @@ pragma solidity ^0.8.0;
 import "./IPancakeV2Router01.sol";
 
 interface IPancakeV2Router02 is IPancakeV2Router01 {
+
     function removeLiquidityETHSupportingFeeOnTransferTokens(
         address token,
         uint liquidity,
@@ -12,6 +13,7 @@ interface IPancakeV2Router02 is IPancakeV2Router01 {
         address to,
         uint deadline
     ) external returns (uint amountETH);
+
     function removeLiquidityETHWithPermitSupportingFeeOnTransferTokens(
         address token,
         uint liquidity,
@@ -29,12 +31,14 @@ interface IPancakeV2Router02 is IPancakeV2Router01 {
         address to,
         uint deadline
     ) external;
+
     function swapExactETHForTokensSupportingFeeOnTransferTokens(
         uint amountOutMin,
         address[] calldata path,
         address to,
         uint deadline
     ) external payable;
+
     function swapExactTokensForETHSupportingFeeOnTransferTokens(
         uint amountIn,
         uint amountOutMin,
@@ -42,4 +46,6 @@ interface IPancakeV2Router02 is IPancakeV2Router01 {
         address to,
         uint deadline
     ) external;
+
+    
 }

@@ -4,15 +4,12 @@ const { expect } = require("chai");
 require("bignumber.js");
 const { utils } = require("ethers");
 
-// const ADMIN_WALLET = "0x69Ba7E86bbB074Cd5f72693DEb6ADc508D83A6bF";
 const panCakeV2RouterAddress = "0x10ED43C718714eb63d5aA57B78B54704E256024E";
 const WETH_ADDRESS = "0xbb4CdB9CBd36B01bD1cBaEBF2De08d9173bc095c";
 const FACTORY_ADDRESS = "0xcA143Ce32Fe78f1f7019d7d551a6402fC5350c73";
 
 const DECIMAL_ZEROS = "000000000000000000"; // 18 zeros
 const formatDecimals = 1000000000000000000;
-
-const totalSupply = 21000000;
 
 const name = "Token";
 const symbol = "TKN";
@@ -23,7 +20,7 @@ const currentTime = async () => {
     const blockNum = await ethers.provider.getBlockNumber();
     const block = await ethers.provider.getBlock(blockNum);
     return block.timestamp;
-  }
+}
 
 
 function printTable(QCONEReserve, BNBReserve, price) {
@@ -34,63 +31,74 @@ function printTable(QCONEReserve, BNBReserve, price) {
 }
 
 
-describe("Quantum Token Scenario", function () {
+describe("Token Testing", function () {
 
-    let token, rewar, panCakeRouter, panCakeFactory, pairAddress, panCakePair, funds;
+    let token, panCakeRouter, panCakeFactory, pairAddress, panCakePair;
 
     beforeEach(async function () {
 
-        funds = ethers.utils.parseEther('9000');
-
-        // await HRE.network.provider.request({method: 'hardhat_impersonateAccount', params: [ADMIN_WALLET]});
-        // admin = await ethers.provider.getSigner(ADMIN_WALLET);
-
+        // Deploying Token
         const Token = await HRE.ethers.getContractFactory("Token");
         token = await Token.deploy(name, symbol, initialSupply);
         await token.deployed();
 
+        //Connecting Pancake
+
+
         panCakeRouter = await ethers.getContractAt("IPancakeV2Router02", panCakeV2RouterAddress);
         panCakeFactory = await ethers.getContractAt("IPancakeV2Factory", FACTORY_ADDRESS);
 
-        await panCakeFactory.createPair(WETH_ADDRESS, token.address); // return transaction
+        await panCakeFactory.createPair(WETH_ADDRESS, token.address); // returns transaction
 
         pairAddress = await panCakeFactory.getPair(WETH_ADDRESS, token.address);
-       
+
         panCakePair = await HRE.ethers.getContractAt("IPancakeV2Pair", pairAddress);
-       
+
+        console.log("token 1", await panCakePair.token0());
+
+        //  Token 1 -> TKN 
+        //  Token 2 -> WETH65
 
 
         [owner, addr1, addr2, addr3, _] = await ethers.getSigners();
-        console.log("owner address",owner.address);
+
+        console.log("---------------------------------------------------")
+        console.log("owner ->", owner.address);
+        console.log("addr1 ->", addr1.address);
+        console.log("addr2 ->", addr2.address);
+        console.log("addr3 ->", addr3.address);
+        console.log("pair ->", pairAddress);
+        console.log("---------------------------------------------------")
 
 
-        // await users[1].sendTransaction({to: ADMIN_WALLET, value: funds}); // Send some funds to admin wallet
-        // await users[2].sendTransaction({to: ADMIN_WALLET, value: funds}); // Send some funds to admin wallet
 
-        await token.approve(panCakeV2RouterAddress, '40000'); // 40M to pancake router
-        // await token.approve(panCakeV2RouterAddress, '4000' + DECIMAL_ZEROS); // 40M to pancake router
+        // await token.approve(panCakeV2RouterAddress, '40000'); // 40M to pancake router
+
+        await token.approve(panCakeV2RouterAddress, '4000' + DECIMAL_ZEROS); // approving router to use owner contracts;
 
 
-        await panCakeRouter.connect(owner).addLiquidityETH(token.address, '10000' , 0, 0, owner.address, (Date.now() + 100000), { value: ethers.utils.parseEther('1000') }); // provide 1000 BNB + 100000 token liquidity to pancakeswap
+        await panCakeRouter.connect(owner).addLiquidityETH(token.address, '10000', 0, 0, owner.address, (Date.now() + 100000), { value: ethers.utils.parseEther('1000') }); // provide 1000 BNB + 100000 token liquidity to pancakeswap
+
 
 
         await token.connect(owner).transfer(addr3.address, '10000');
 
 
-// ********************************************************** Check this **************************************************
-// ************************************************************************************************************************
-// ************************************************************************************************************************
-//  await token.transfer(addr3.address, '10000' + DECIMAL_ZEROS);
+        // ********************************************************** Check this **************************************************
+        // ************************************************************************************************************************
+        // ************************************************************************************************************************
+        //  await token.transfer(addr3.address, '10000' );
 
-        
+
 
     });
 
 
     describe('Deployment', () => {
-        const ownerInitialSupply = initialSupply -10000-10000;
+        const ownerInitialSupply = initialSupply - 10000 - 10000;
 
-        it("token transferred by owner should be free", async () => {
+        it("tokens transferred by owner should be free", async () => {
+
             await token.transfer(addr1.address, 100);
             expect(await token.balanceOf(owner.address)).to.equal(ownerInitialSupply - 100);
             expect(await token.getFreeTokens(owner.address)).to.equal(ownerInitialSupply - 100);
@@ -104,60 +112,78 @@ describe("Quantum Token Scenario", function () {
 
 
 
-        it("tokens bought from DEX should be free,# no previous vestings",async()=>{
+        it("tokens bought from DEX should be free,# no previous vestings", async () => {
 
-            const path = [WETH_ADDRESS,token.address];
+            const path = [WETH_ADDRESS, token.address];
 
             console.log("Initial price and liquidity");
-            console.log("++++++++++++++++++++++++++++++++++++++++++++++++++");
 
             let reserves = await panCakePair.getReserves();
+            // console.log(reserves);
 
-            QCONEReserve = reserves['reserve0'] / formatDecimals;
+
+
+            TKNReserve = reserves['reserve0'];
             BNBReserve = reserves['reserve1'] / formatDecimals;
 
-            QCONEPrice = ((await panCakeRouter.getAmountsOut(ethers.utils.parseEther('1'), path))[1]) / formatDecimals;
-          
-            printTable(QCONEReserve, BNBReserve, QCONEPrice);
+            // TKNPrice = ((await panCakeRouter.getAmountsOut(ethers.utils.parseEther('1'), path))[1]);
+            res = ((await panCakeRouter.getAmountsOut(ethers.utils.parseEther('1'), path)));
+            console.log(res);
+            // console.log("/*/*/*/*/*/*/*/*/*/*/*/****")
+            return;
 
-            console.log("Before Exchange : ");
+
+            // printTable(QCONEReserve, BNBReserve, QCONEPrice);
+
+            // console.log("Before Exchange : ");
 
             console.log(await token.balanceOf(addr1.address));
             console.log(await token.getFreeTokens(addr1.address));
             console.log(await token.getFrozenTokens(addr1.address));
 
-            await panCakeRouter.connect(addr1).swapExactETHForTokens(0,path,addr1.address,(Date.now() + 100000),{ value: ethers.utils.parseEther('1000') });
+            console.log("/*/*/*/**/*/*/*/*/*/*/*/*/*/*/*/*/*/*/");
 
+
+            let TKNPrice = await panCakePair.price0CumulativeLast();
+
+
+            await panCakeRouter.connect(addr1).swapExactETHForTokens(0, path, addr1.address, (Date.now() + 100000), { value: ethers.utils.parseEther('1000') });
+
+            let TKNPriceAfter = await panCakePair.price0CumulativeLast();
+
+            console.log(TKNPrice, TKNPriceAfter);
+            console.log("/*/*/*/**/*/*/*/*/*/*/*/*/*/*/*/*/*/*/");
 
             QCONEReserve = reserves['reserve0'] / formatDecimals;
             BNBReserve = reserves['reserve1'] / formatDecimals;
 
             QCONEPrice = ((await panCakeRouter.getAmountsOut(ethers.utils.parseEther('1'), path))[1]) / formatDecimals;
-            printTable(QCONEReserve, BNBReserve, QCONEPrice);
+            // printTable(QCONEReserve, BNBReserve, QCONEPrice);
             console.log("After Exchange : ");
 
-        
+
             console.log(await token.balanceOf(addr1.address));
             console.log(await token.getFreeTokens(addr1.address));
             console.log(await token.getFrozenTokens(addr1.address));
-            console.log("aaaaaaaaaaaaaaaaaa");  
+            console.log("aaaaaaaaaaaaaaaaaa");
         });
 
-        it("Tokens brought from DEX should be free #previous vesting",async()=>{
+        it("Tokens brought from DEX should be free #previous vesting", async () => {
+            return;
 
             const timeNow = await currentTime();
             const startTime = timeNow + 50 * 24 * 60 * 60;
-      await token.setStartDate(startTime);
+            await token.setStartDate(startTime);
 
-      const path = [WETH_ADDRESS,token.address];
-            
-            await token.sendFrozen(addr1.address,100,40,10);
+            const path = [WETH_ADDRESS, token.address];
+
+            await token.sendFrozen(addr1.address, 100, 40, 10);
 
             const initialBalance = await token.balanceOf(addr1.address);
             const initialFree = await token.getFreeTokens(addr1.address);
             const initialFrozen = await token.getFrozenTokens(addr1.address);
 
-            await panCakeRouter.connect(addr1).swapExactETHForTokens(0,path,addr1.address,(Date.now() + 100000),{ value: ethers.utils.parseEther('1000') });
+            await panCakeRouter.connect(addr1).swapExactETHForTokens(0, path, addr1.address, (Date.now() + 100000), { value: ethers.utils.parseEther('1000') });
 
             expect(await token.getFrozenTokens(addr1.address)).to.equal(initialFrozen);
 
