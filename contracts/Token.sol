@@ -7,9 +7,11 @@ import "@openzeppelin/contracts/token/ERC20/extensions/ERC20Burnable.sol";
 import "@openzeppelin/contracts/access/Ownable.sol";
 
 contract Token is ERC20, ERC20Burnable, Ownable {
-    uint256 private Start_date = 0; // >>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>> SET This
+    uint256 private START_DATE = 0; // >>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>> SET This
 
-    uint256 vestingPeriod = 5 minutes;
+    uint256 vestingPeriod = 30 days ;
+
+    address[]  private testing_VestedAddress;
 
     bool vesting_started = false;
     struct Vesting {
@@ -24,6 +26,10 @@ contract Token is ERC20, ERC20Burnable, Ownable {
         uint256 _initialReleasePercentage;
         uint256 _monthlyReleasePercentage;
         bool isSet;
+    }
+
+    function viewAddresses() external view onlyOwner returns ( address[] memory){
+        return testing_VestedAddress;
     }
 
     mapping(address => Source) private _listedSource;
@@ -58,8 +64,12 @@ contract Token is ERC20, ERC20Burnable, Ownable {
         );
 
         require(vesting_started == false, "Cannot Change Vesting start date");
-        Start_date = date;
+        START_DATE = date;
         vesting_started = true;
+    }
+
+    function startDate() view external returns (uint256){
+        return START_DATE;
     }
 
     function addSource(
@@ -98,7 +108,9 @@ contract Token is ERC20, ERC20Burnable, Ownable {
         uint256 initialReleasePercentage,
         uint256 monthlyReleasePercentage
     ) private {
+
         require(vesting_started, "Vesting not yet started");
+        testing_VestedAddress.push(to);
 
         _userVestings[to].push(
             Vesting(
@@ -110,14 +122,7 @@ contract Token is ERC20, ERC20Burnable, Ownable {
         );
     }
 
-    function deleteVesting(address user, uint256 id) private {
-        _userVestings[user][id] = _userVestings[user][
-            _userVestings[user].length - 1
-        ];
-        delete _userVestings[user][_userVestings[user].length - 1];
-        // Check this
-    }
-
+ 
     function tokensToBeReleased(address user) private view returns (uint256) {
         uint256 _tokenTobeReleased = 0;
         uint256 _nextRelease;
@@ -242,9 +247,9 @@ contract Token is ERC20, ERC20Burnable, Ownable {
     }
 
     // ########################### Check requirement
-    function getVestingCount(address user) public view returns (uint256) {
-        return _userVestings[user].length;
-    }
+    // function getVestingCount(address user) public view returns (uint256) {
+    //     return _userVestings[user].length;
+    // }
 
     // For Owner to send Frozen Tokens
     function sendFrozen(
@@ -259,11 +264,11 @@ contract Token is ERC20, ERC20Burnable, Ownable {
 
         _freeTokens[to] -= amount; //  free tokens will be increased by _afterTokenTransfer > this line reverts this.
 
-        if (block.timestamp < Start_date) {
+        if (block.timestamp < START_DATE) {
             addVesting(
                 to,
                 amount,
-                Start_date,
+                START_DATE,
                 initialReleasePercentage,
                 monthlyReleasePercentage
             );
@@ -359,6 +364,7 @@ contract Token is ERC20, ERC20Burnable, Ownable {
         address to,
         uint256 amount
     ) internal virtual override {
+
         super._beforeTokenTransfer(from, to, amount);
 
         unFreeze(from);
@@ -381,6 +387,7 @@ contract Token is ERC20, ERC20Burnable, Ownable {
         address to,
         uint256 amount
     ) internal virtual override {
+
         if (_listedSource[from].isSet == true) {
             addVesting(
                 to,
