@@ -39,16 +39,24 @@ describe("Token Testing", function () {
 
       await token.transfer(addr2.address,200);
 
-    
-      console.log(await currentTime());
+      // Transfer before adding as source, works on testnet 
       await token.connect(addr2).transfer(addr1.address,50);
-      await token.setStartDate(1653121260);
+
+      const timeNow = await currentTime();
+      const startTime = timeNow + 5 * 60;
+      // start Date = current time + 5 minutes 
+      await token.setStartDate(startTime);
       
       expect(await token.balanceOf(addr1.address)).to.equal(50);
       expect(await token.getFreeTokens(addr1.address)).to.equal(50);
 
+      expect(await token.balanceOf(addr2.address)).to.equal(150);
+      expect(await token.getFreeTokens(addr2.address)).to.equal(150);
+
+
       await token.addSource(addr2.address,40,10);
 
+      // Failing on testnet
       await token.connect(addr2).transfer(addr1.address,50);
 
       expect(await token.balanceOf(addr1.address)).to.equal(100);
