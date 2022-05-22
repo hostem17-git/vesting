@@ -8,6 +8,8 @@ const name = "Token";
 const symbol = "TKN";
 const initialSupply = 1000;
 
+const digits ="000000000000000000"
+
 
 describe("Token Testing", function () {
 
@@ -66,7 +68,7 @@ describe("Token Testing", function () {
     })
   });
 
-  return;
+  // return;
   describe("External Source Vesting", async () => {
 
     it("Should Handle external source Vesting # No user transaction", async () => {
@@ -156,7 +158,7 @@ describe("Token Testing", function () {
       await token.setStartDate(startTime);
 
 
-      await expect(token.setStartDate(timeNow + 90 * 24 * 60 * 60)).to.be.revertedWith("Cannot Change Vesting start date");
+      await expect(token.setStartDate(timeNow + 90 * 24 * 60 * 60)).to.be.revertedWith("Cannot change Vesting start date");
 
       await expect(token.connect(addr2).transfer(addr1.address, 100)).to.be.revertedWith("Not Enough free tokens");
 
@@ -215,7 +217,7 @@ describe("Token Testing", function () {
 
   });
 
-  return;
+  // return;
 
   describe("Base setup", async () => {
 
@@ -263,7 +265,7 @@ describe("Token Testing", function () {
 
       expect(await token.balanceOf(addr1.address)).to.equal(100);
       expect(await token.getFreeTokens(addr1.address)).to.equal(100);
-      expect(await token.getVestingCount(addr1.address)).to.equal(0);
+      // expect(await token.getVestingCount(addr1.address)).to.equal(0);
       expect(await token.getFrozenTokens(addr1.address)).to.equal(0);
 
     })
@@ -285,7 +287,7 @@ describe("Token Testing", function () {
 
       expect(await token.balanceOf(addr1.address)).to.equal(50);
       expect(await token.getFreeTokens(addr1.address)).to.equal(0);
-      expect(await token.getVestingCount(addr1.address)).to.equal(1);
+      // expect(await token.getVestingCount(addr1.address)).to.equal(1);
       expect(await token.getFrozenTokens(addr1.address)).to.equal(50);
     })
 

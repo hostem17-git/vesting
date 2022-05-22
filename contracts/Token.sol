@@ -7,18 +7,16 @@ import "@openzeppelin/contracts/token/ERC20/extensions/ERC20Burnable.sol";
 import "@openzeppelin/contracts/access/Ownable.sol";
 
 contract Token is ERC20, ERC20Burnable, Ownable {
-    uint256 private START_DATE = 0; // >>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>> SET This
+    uint256 private START_DATE = 0;
 
-    uint256 vestingPeriod = 30 days ;
-
-    address[]  private testing_VestedAddress;
+    uint256 vestingPeriod = 5 minutes;
 
     bool vesting_started = false;
     struct Vesting {
         uint256 nextReleaseTime; // SEP 3 / +block.timeStamp+ vestingPeriod
         uint256 initialReleaseAmount;
         uint256 monthlyReleaseAmount;
-        uint256 cyclesLeft; // set to 9,  decrease on each vesting
+        uint256 cyclesLeft;
     }
 
     // @dev - holds Launchpad address, vesting percentage
@@ -26,10 +24,6 @@ contract Token is ERC20, ERC20Burnable, Ownable {
         uint256 _initialReleasePercentage;
         uint256 _monthlyReleasePercentage;
         bool isSet;
-    }
-
-    function viewAddresses() external view onlyOwner returns ( address[] memory){
-        return testing_VestedAddress;
     }
 
     mapping(address => Source) private _listedSource;
@@ -63,12 +57,12 @@ contract Token is ERC20, ERC20Burnable, Ownable {
             "Start time should be greater than current time"
         );
 
-        require(vesting_started == false, "Cannot Change Vesting start date");
+        require(vesting_started == false, "Cannot change Vesting start date");
         START_DATE = date;
         vesting_started = true;
     }
 
-    function startDate() view external returns (uint256){
+    function startDate() external view returns (uint256) {
         return START_DATE;
     }
 
@@ -78,10 +72,16 @@ contract Token is ERC20, ERC20Burnable, Ownable {
         uint256 _monthlyReleasePercentage
     ) external onlyOwner {
         require(_sourceAddress != address(0), "Cannot add address 0");
+        require(_sourceAddress != owner(), "Cannot add owner as listed source");
 
         require(
             _listedSource[_sourceAddress].isSet == false,
             "Source Already exists"
+        );
+
+        require(
+            (100 - _initialReleasePercentage) % _monthlyReleasePercentage == 0,
+            "Invalid Release Percentages"
         );
 
         _listedSource[_sourceAddress] = Source(
@@ -108,40 +108,46 @@ contract Token is ERC20, ERC20Burnable, Ownable {
         uint256 initialReleasePercentage,
         uint256 monthlyReleasePercentage
     ) private {
+        require(vesting_started == true, "Vesting not yet started");
 
-        require(vesting_started, "Vesting not yet started");
-        testing_VestedAddress.push(to);
+        uint256 initialReleaseAmount = (amount * initialReleasePercentage) /
+            100;
+        uint256 monthlyReleaseAmount = (amount * monthlyReleasePercentage) /
+            100;
+
+        uint256 cycles = 100 - initialReleasePercentage;
+        cycles = cycles / monthlyReleasePercentage;
+        cycles = cycles + 1;
 
         _userVestings[to].push(
             Vesting(
                 initialReleaseTime,
-                (amount * initialReleasePercentage) / 100,
-                (amount * monthlyReleasePercentage) / 100,
-                1 + (100 - initialReleasePercentage) / monthlyReleasePercentage
+                initialReleaseAmount,
+                monthlyReleaseAmount,
+                cycles
             )
         );
     }
 
- 
     function tokensToBeReleased(address user) private view returns (uint256) {
         uint256 _tokenTobeReleased = 0;
         uint256 _nextRelease;
+        uint256 _cycles;
         for (uint256 i = 0; i < _userVestings[user].length; i++) {
             _nextRelease = _userVestings[user][i].nextReleaseTime;
-            if (block.timestamp >= _nextRelease) {
+            _cycles = _userVestings[user][i].cyclesLeft;
+            if (_cycles > 0 && block.timestamp >= _nextRelease) {
                 if (_userVestings[user][i].initialReleaseAmount > 0) {
                     _nextRelease += vestingPeriod;
                     _tokenTobeReleased += _userVestings[user][i]
                         .initialReleaseAmount;
+                    _cycles--;
                 }
 
                 if (block.timestamp >= _nextRelease) {
                     uint256 cyclesPassed = 1 +
                         ((block.timestamp - _nextRelease) / vestingPeriod);
-                    uint256 cyclesToBePaid = min(
-                        _userVestings[user][i].cyclesLeft,
-                        cyclesPassed
-                    );
+                    uint256 cyclesToBePaid = min(_cycles, cyclesPassed);
 
                     _tokenTobeReleased +=
                         cyclesToBePaid *
@@ -166,8 +172,10 @@ contract Token is ERC20, ERC20Burnable, Ownable {
                         .initialReleaseAmount;
                     _userVestings[user][i].initialReleaseAmount = 0;
                     _userVestings[user][i].nextReleaseTime += vestingPeriod;
+
                     _amountVested[user] += _userVestings[user][i]
                         .initialReleaseAmount;
+
                     _userVestings[user][i].cyclesLeft--;
                 }
                 if (block.timestamp >= _userVestings[user][i].nextReleaseTime) {
@@ -193,16 +201,6 @@ contract Token is ERC20, ERC20Burnable, Ownable {
 
                     _userVestings[user][i].nextReleaseTime += (cyclesPassed *
                         vestingPeriod);
-
-                    // Check Delete Vesting
-
-                    // // *****************************************************
-                    // if (_userVestings[user][i].cyclesLeft == 0) {
-                    //     deleteVesting(user, i);
-                    //     i--;
-                    // }
-
-                    // *****************************************
                 }
             }
         }
@@ -212,28 +210,40 @@ contract Token is ERC20, ERC20Burnable, Ownable {
         uint256 count = 0;
         uint256 _nextRelease;
         for (uint256 i = 0; i < _userVestings[user].length; i++) {
-            _nextRelease = _userVestings[user][i].nextReleaseTime;
-            uint256 localCount = 0;
-            if (block.timestamp >= _nextRelease) {
-                if (_userVestings[user][i].initialReleaseAmount > 0) {
-                    _nextRelease += vestingPeriod;
-                    localCount++;
-                }
+            if (_userVestings[user][i].cyclesLeft > 0) {
+                _nextRelease = _userVestings[user][i].nextReleaseTime;
+                uint256 localCount = 0;
                 if (block.timestamp >= _nextRelease) {
-                    uint256 cyclesPassed = 1 +
-                        ((block.timestamp - _nextRelease) / vestingPeriod);
-                    uint256 cyclesToBePaid = min(
-                        _userVestings[user][i].cyclesLeft,
-                        cyclesPassed
-                    );
-                    localCount += (cyclesToBePaid);
+                    if (_userVestings[user][i].initialReleaseAmount > 0) {
+                        _nextRelease += vestingPeriod;
+                        localCount++;
+                    }
+                    if (block.timestamp >= _nextRelease) {
+                        uint256 cyclesPassed = 1 +
+                            ((block.timestamp - _nextRelease) / vestingPeriod);
+                        uint256 cyclesToBePaid = min(
+                            _userVestings[user][i].cyclesLeft,
+                            cyclesPassed
+                        );
+                        localCount += (cyclesToBePaid);
+                    }
+                    count += (_userVestings[user][i].cyclesLeft - localCount);
                 }
-                count += (_userVestings[user][i].cyclesLeft - localCount);
             }
         }
         return count;
     }
 
+    //******************************Remove */
+    function freeTokenArrayMap(address user) public view returns (uint256) {
+        return _freeTokens[user];
+    }
+
+    function getTokensToBeReleased(address user) public view returns (uint256) {
+        return tokensToBeReleased(user);
+    }
+
+    //REmove*/
     function getFreeTokens(address user) public view returns (uint256) {
         return _freeTokens[user] + tokensToBeReleased(user);
     }
@@ -246,11 +256,6 @@ contract Token is ERC20, ERC20Burnable, Ownable {
         return balanceOf(user) - getFreeTokens(user);
     }
 
-    // ########################### Check requirement
-    // function getVestingCount(address user) public view returns (uint256) {
-    //     return _userVestings[user].length;
-    // }
-
     // For Owner to send Frozen Tokens
     function sendFrozen(
         address to,
@@ -260,7 +265,7 @@ contract Token is ERC20, ERC20Burnable, Ownable {
     ) public onlyOwner {
         transfer(to, amount);
 
-        //  will also call _afterTokenTransfer ????????????????????????????????????????????????????????????????????????????????????????
+        //will also call _afterTokenTransfer
 
         _freeTokens[to] -= amount; //  free tokens will be increased by _afterTokenTransfer > this line reverts this.
 
@@ -364,18 +369,9 @@ contract Token is ERC20, ERC20Burnable, Ownable {
         address to,
         uint256 amount
     ) internal virtual override {
-
         super._beforeTokenTransfer(from, to, amount);
 
         unFreeze(from);
-
-        // console.log("****************Transfer****************");
-
-        // console.log("from ->",from);
-        // console.log("to ->",to);
-        // console.log("amount ->",amount);
-
-        // console.log("****************************************");
 
         if (from != address(0)) {
             require(amount <= _freeTokens[from], "Not Enough free tokens");
@@ -387,14 +383,13 @@ contract Token is ERC20, ERC20Burnable, Ownable {
         address to,
         uint256 amount
     ) internal virtual override {
-
         if (_listedSource[from].isSet == true) {
             addVesting(
                 to,
                 amount,
                 block.timestamp + vestingPeriod,
-                (amount * _listedSource[from]._initialReleasePercentage) / 100,
-                (amount * _listedSource[from]._monthlyReleasePercentage) / 100
+                _listedSource[from]._initialReleasePercentage,
+                _listedSource[from]._monthlyReleasePercentage
             );
         } else {
             _freeTokens[to] += amount;
