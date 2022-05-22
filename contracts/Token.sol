@@ -9,7 +9,7 @@ import "@openzeppelin/contracts/access/Ownable.sol";
 contract Token is ERC20, ERC20Burnable, Ownable {
     uint256 private START_DATE = 0;
 
-    uint256 vestingPeriod = 5 minutes;
+    uint256 vestingPeriod = 30 days;
 
     bool vesting_started = false;
     struct Vesting {
@@ -51,7 +51,7 @@ contract Token is ERC20, ERC20Burnable, Ownable {
         return a <= b ? a : b;
     }
 
-    function setStartDate(uint256 date) external onlyOwner {
+    function setStartTime(uint256 date) external onlyOwner {
         require(
             date > block.timestamp,
             "Start time should be greater than current time"
@@ -77,6 +77,24 @@ contract Token is ERC20, ERC20Burnable, Ownable {
         require(
             _listedSource[_sourceAddress].isSet == false,
             "Source Already exists"
+        );
+
+        require(
+            _initialReleasePercentage < 100,
+            "Invalid initial release percentage"
+        );
+        require(
+            _monthlyReleasePercentage < 100,
+            "Invalid monthly release percentage"
+        );
+
+        require(
+            _initialReleasePercentage > 0,
+            "Invalid initial release percentage"
+        );
+        require(
+            _monthlyReleasePercentage > 0,
+            "Invalid monthly release percentage"
         );
 
         require(
@@ -291,7 +309,7 @@ contract Token is ERC20, ERC20Burnable, Ownable {
     //  @dev - for owner to unfreeze amount in a wallet;
     function unfreezeAmount(address user, uint256 amount) external onlyOwner {
         require(amount <= getFrozenTokens(user), "Not enough frozen tokens");
-        require(amount >= 0, "Amount should be greater than 0");
+        require(amount > 0, "Amount should be greater than 0");
 
         unFreeze(user);
 
