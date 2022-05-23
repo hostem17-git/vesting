@@ -191,7 +191,6 @@ describe("Token Testing", function () {
 
       await token.sendFrozen(addr1.address, 100, 20, 10);
 
-      let vestingDets = await token.getVestingDetails(addr1.address, 0);
 
       expect(await token.balanceOf(addr1.address), "token transfer").to.equal(100);
       expect(await token.getFreeTokens(addr1.address), "tokens should be frozen").to.equal(0);
@@ -245,11 +244,6 @@ describe("Token Testing", function () {
 
       await token.connect(addr1).transfer(addr2.address, 10);
 
-      vestingDets = await token.getVestingDetails(addr1.address, 0);
-
-      console.log({
-        "data": vestingDets.toString()
-      });
 
       await increaseTime(90);
 

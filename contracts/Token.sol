@@ -9,11 +9,14 @@ import "@openzeppelin/contracts/access/Ownable.sol";
 contract Token is ERC20, ERC20Burnable, Ownable {
     uint256 private START_TIME = 0;
 
-    uint256 vestingPeriod = 5 minutes;
+    // **********************************************************************************
+    // **********************    Change vesting Period here    **********************
+    // **********************************************************************************
+    uint256 vestingPeriod = 30 days;
 
     bool vesting_started = false;
     struct Vesting {
-        uint256 nextReleaseTime; // SEP 3 / +block.timeStamp+ vestingPeriod
+        uint256 nextReleaseTime;
         uint256 initialReleaseAmount;
         uint256 monthlyReleaseAmount;
         uint256 cyclesLeft;
@@ -44,7 +47,7 @@ contract Token is ERC20, ERC20Burnable, Ownable {
         string memory _symbol,
         uint256 _initialSupply
     ) ERC20(_name, _symbol) {
-        ERC20._mint(msg.sender, _initialSupply );
+        ERC20._mint(msg.sender, _initialSupply * 10**decimals());
     }
 
     function min(uint256 a, uint256 b) internal pure returns (uint256) {
@@ -62,7 +65,7 @@ contract Token is ERC20, ERC20Burnable, Ownable {
         vesting_started = true;
     }
 
-    function startDate() external view returns (uint256) {
+    function startTime() external view returns (uint256) {
         return START_TIME;
     }
 
