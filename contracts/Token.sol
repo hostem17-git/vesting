@@ -3,7 +3,6 @@
 //SPDX-License-Identifier: Unlicense
 pragma solidity ^0.8.0;
 
-import "hardhat/console.sol";
 import "@openzeppelin/contracts/token/ERC20/ERC20.sol";
 import "@openzeppelin/contracts/token/ERC20/extensions/ERC20Burnable.sol";
 import "@openzeppelin/contracts/access/Ownable.sol";
@@ -15,6 +14,9 @@ contract Token is ERC20, ERC20Burnable, Ownable {
     // **********************    Change vesting Period here    **********************
     // **********************************************************************************
     uint256 vestingPeriod = 30 days;
+
+    string NAME = "PsPay";
+    string SYMBOL = "PSPY";
 
     bool vesting_started = false;
     struct Vesting {
@@ -44,11 +46,7 @@ contract Token is ERC20, ERC20Burnable, Ownable {
 
     event ManualUnfreeze(address _address, uint256 _amount);
 
-    constructor(
-        string memory _name,
-        string memory _symbol,
-        uint256 _initialSupply
-    ) ERC20(_name, _symbol) {
+    constructor(uint256 _initialSupply) ERC20(NAME, SYMBOL) {
         ERC20._mint(msg.sender, _initialSupply * 10**decimals());
     }
 

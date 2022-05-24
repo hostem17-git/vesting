@@ -29,7 +29,7 @@ describe("Token Testing", function () {
 
   beforeEach(async () => {
     Token = await ethers.getContractFactory("Token");
-    token = await Token.deploy(name, symbol, initialSupply);
+    token = await Token.deploy(initialSupply);
     await token.deployed();
     [owner, addr1, addr2, addr3, _] = await ethers.getSigners();
   })
@@ -503,20 +503,20 @@ describe("Token Testing", function () {
 
     });
 
-    it("Tokens transferred to owner should be free", async()=> {
+    it("Tokens transferred to owner should be free", async () => {
       const timeNow = await currentTime();
       const startTime = timeNow + 50 * 24 * 60 * 60;
 
       await token.setStartTime(startTime);
-      await token.addSource(addr2.address,40,20);
+      await token.addSource(addr2.address, 40, 20);
 
-      await token.transfer(addr2.address,200);
-      expect( await token.getFrozenTokens(addr2.address)).to.equal(0);
+      await token.transfer(addr2.address, 200);
+      expect(await token.getFrozenTokens(addr2.address)).to.equal(0);
 
       await token.connect(addr2).transfer(addr1.address, 100);
 
       expect(await token.getFrozenTokens(addr1.address)).to.equal(100);
-      await token.connect(addr2).transfer(owner.address,100);
+      await token.connect(addr2).transfer(owner.address, 100);
       expect(await token.getFrozenTokens(owner.address)).to.equal(0);
     });
 
