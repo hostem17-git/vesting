@@ -17,6 +17,7 @@ contract Token is ERC20, ERC20Burnable, Ownable {
 
     string NAME = "PsPay";
     string SYMBOL = "PSPY";
+    uint256 SUPPLY = 1000;
 
     bool vesting_started = false;
     struct Vesting {
@@ -46,8 +47,8 @@ contract Token is ERC20, ERC20Burnable, Ownable {
 
     event ManualUnfreeze(address _address, uint256 _amount);
 
-    constructor(uint256 _initialSupply) ERC20(NAME, SYMBOL) {
-        ERC20._mint(msg.sender, _initialSupply * 10**decimals());
+    constructor() ERC20(NAME, SYMBOL) {
+        ERC20._mint(msg.sender, SUPPLY * 10**decimals());
     }
 
     function min(uint256 a, uint256 b) internal pure returns (uint256) {
