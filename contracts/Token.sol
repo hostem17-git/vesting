@@ -13,11 +13,11 @@ contract Token is ERC20, ERC20Burnable, Ownable {
     // **********************************************************************************
     // **********************    Change vesting Period here    **********************
     // **********************************************************************************
-    uint256 vestingPeriod = 30 days;
+    uint256 vestingPeriod = 5 minutes;
 
     string NAME = "PsPay";
     string SYMBOL = "PSPY";
-    uint256 SUPPLY = 1000;
+    uint256 SUPPLY = 750000000;
 
     bool vesting_started = false;
     struct Vesting {
